@@ -1,0 +1,11 @@
+name: aligner
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - montreal-forced-aligner
+  - librosa
+  - praatio
+  - numpy
+  - pandas
+  - pip
