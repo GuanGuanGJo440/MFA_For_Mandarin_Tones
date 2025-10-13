@@ -1,1 +1,5 @@
-{}
+[
+  {"pattern": "pʰ|tʰ|kʰ|tsʰ|tɕʰ", "replacement": "ua", "tier": "words"},
+  {"pattern": "m|n|ŋ", "replacement": "un", "tier": "words"},
+  {"pattern": ".", "replacement": "u", "tier": "words"}
+]
