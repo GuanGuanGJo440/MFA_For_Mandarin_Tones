@@ -1,16 +1,36 @@
-print('Generating lexicon dictionary...')
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Generate lexicon dictionary from modified TextGrids.
+
+Input:  /data/textgrids_modified/
+Output: /data/dict/dict.txt  and  /data/dict/dict.dict
+
+Run:
+    python scripts/generate_dictionary.py
+"""
 
 import os
+from pathlib import Path
 from praatio import tgio
 from collections import defaultdict
 
-# --- CONFIG ---
-TEXTGRID_DIR = "/Users/guanguangjo/Desktop/TextGrid_Training_10_18_26"
-OUTPUT_DICT = "dict.txt"
+print("🔧 Generating lexicon dictionary...")
+
+# ========== CONFIG ==========
+BASE_DIR = Path(__file__).resolve().parent.parent
+TEXTGRID_DIR = BASE_DIR / "data" / "textgrids_modified"
+OUTPUT_DIR = BASE_DIR / "data" / "dict"
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+OUTPUT_TXT = OUTPUT_DIR / "dict.txt"
+OUTPUT_DICT = OUTPUT_DIR / "dict.dict"
+
 TONE_TIER = "tones"
 WORD_TIER = "words"
-TOLERANCE = 0.02  # 20 ms tolerance for time overlap
-# --- END CONFIG ---
+TOLERANCE = 0.02  # 20 ms
+# =============================
+
 
 def extract_word_tone_pairs(tg_path):
     """Extract (word, tone_sequence) pairs from TextGrid."""
@@ -20,7 +40,7 @@ def extract_word_tone_pairs(tg_path):
         tg = tgio.openTextgrid(tg_path)
 
     if WORD_TIER not in tg.tierNameList or TONE_TIER not in tg.tierNameList:
-        print(f"⚠️ Missing expected tiers in {tg_path}")
+        print(f"⚠️ Missing expected tiers in {tg_path.name}")
         return []
 
     word_tier = tg.tierDict[WORD_TIER]
@@ -50,22 +70,24 @@ def extract_word_tone_pairs(tg_path):
 
 def main():
     word_dict = defaultdict(set)
-    files = [f for f in os.listdir(TEXTGRID_DIR) if f.endswith(".TextGrid")]
-    print(f"📂 Found {len(files)} TextGrid files")
+    tg_files = sorted(TEXTGRID_DIR.glob("*.TextGrid"))
 
-    for filename in files:
-        tg_path = os.path.join(TEXTGRID_DIR, filename)
+    print(f"📂 Found {len(tg_files)} TextGrid files in {TEXTGRID_DIR}")
+
+    for tg_path in tg_files:
         pairs = extract_word_tone_pairs(tg_path)
         for word, tone_seq in pairs:
             word_dict[word].add(tone_seq)
 
-    # Write dictionary file
-    with open(OUTPUT_DICT, "w", encoding="utf-8") as f:
-        for word, variants in sorted(word_dict.items()):
-            for pron in variants:
-                f.write(f"{word}\t{pron}\n")
+    # --- Write dictionary to TXT and DICT ---
+    for out_path in [OUTPUT_TXT, OUTPUT_DICT]:
+        with open(out_path, "w", encoding="utf-8") as f:
+            for word, variants in sorted(word_dict.items()):
+                for pron in sorted(variants):
+                    f.write(f"{word}\t{pron}\n")
+        print(f"✅ Dictionary written to {out_path}")
 
-    print(f"✅ Dictionary written to {OUTPUT_DICT} with {len(word_dict)} entries.")
+    print(f"🎉 Done! {len(word_dict)} unique entries written.")
 
 
 if __name__ == "__main__":
