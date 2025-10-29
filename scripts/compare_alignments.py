@@ -9,7 +9,7 @@ import pandas as pd
 # ===== CONFIG =====
 trained_folder = "/Users/guanguangjo/Desktop/MFA_Align_Output_Trained"
 pretrained_folder = "/Users/guanguangjo/Desktop/MFA_Align_Output_Pretrained"
-threshold = 0.2  # seconds (200 ms)
+threshold = 0.1  # seconds (100 ms)
 word_tier_name = "words"
 # Tier2 possible names in trained / pretrained (will pick first that exists)
 tier2_candidates = ["phones", "phone", "tones", "tone"]
@@ -188,6 +188,9 @@ def analyze_all(trained_folder, pretrained_folder, threshold):
         return
 
     df = pd.DataFrame(all_rows)
+    # Filter out unspecified tones ("unknown") from both pretrained and trained
+    df = df[(df["tone_pr"].isin(["1","2","3","4","n"])) & (df["tone_tr"].isin(["1","2","3","4","n"]))]
+
     # Save detailed row-level results
     df.to_csv("boundary_and_label_comparison_detail.csv", index=False)
     print("Saved detailed results to 'boundary_and_label_comparison_detail.csv'.")
