@@ -28,18 +28,19 @@ EPS = 1e-7
 MID_TOL = 1e-6  # midpoint tolerance for assignment (seconds)
 
 # IPA sets and diacritic->number mapping
-VOWELS = "aAeEiIoOuUyɪʊɤəɛɔɑɨɯɒɚɜ"  
+VOWELS = "aAeEiIoOuUyɪʊɤəɛɔɑɨɯɒɚɜ"
 GLIDES = {"j", "w", "ɥ"}
 NASALS = {"m", "n", "ŋ"}
+RHOTIC = "ɻ"  # rhotic symbol to be treated like a following-nasal when after vowel/glide
 
 DIACR_TO_NUM = {
     "˥":   "1",    # high
     "˧˥": "2",    # rising
     "˨˩˦": "3",   # dipping (3rd)
     "˥˩": "4",    # falling (4th)
-    "˧":   "2",
-    "˩":   "4",
-    "˦":   "2",
+    "˧":   "n",
+    "˩":   "n",
+    "˦":   "1",
     "˨":   "3",
     "˩˧": "3",
 }
@@ -54,11 +55,9 @@ def is_vowel(phone):
     if not phone:
         return False
     p = phone.strip()
-    # normal vowels
     if VOWEL_RE.search(p):
         return True
-    # syllabic diacritic (like ʐ̩, ɻ̩, z̩, s̩)
-    if "̩" in p:
+    if "̩" in p or "̍" in p:
         return True
     return False
 
@@ -73,6 +72,12 @@ def is_glide(phone):
 
 def is_nasal(phone):
     return bool(phone and any(n in phone for n in NASALS))
+
+def is_rhotic(phone):
+    """True if phone is ɻ or contains ɻ (possibly with diacritics)."""
+    if not phone:
+        return False
+    return "ɻ" in phone
 
 def is_aspirated(phone):
     return bool(phone and ("ʰ" in phone or re.search(r"[ptkbdgcsz]h", phone)))
@@ -99,6 +104,14 @@ def remove_tone_symbols(phone):
     return re.sub(r"[˥˦˧˨˩1-5]", "", phone).strip()
 
 def phone_to_tone_number(phone):
+    """
+    Map phone to tone label (numeric):
+    - vowel -> numeric tone from diacritic (1-4) or 'n'
+    - aspirated consonant -> 'ua'
+    - nasal consonant -> 'un'
+    - other consonant -> 'u'
+    - preserve 'sil' and 'spn'
+    """
     if not phone or phone.strip() == "":
         return ""
     p = phone.strip()
@@ -111,17 +124,14 @@ def phone_to_tone_number(phone):
     if is_vowel(p):
         diacr = extract_tone_diacritic(p)
         return diacritic_to_number(diacr)
+    # treat an isolated rhotic (not after vowel) as consonant
+    if is_rhotic(p):
+        return "u"
     return "u"
 
 # ===================== CORE: assign phones to word by midpoint =====================
 def phones_grouped_by_word(word_tier, phone_tier):
-    """
-    Return a list aligned to word_tier.intervals: for each word interval an ordered
-    list of phone intervals whose midpoint falls inside that word interval.
-    """
-    # Precompute phone midpoints
     phone_midpoints = [(p, (p.minTime + p.maxTime) / 2.0) for p in phone_tier.intervals]
-
     grouped = []
     for w in word_tier.intervals:
         wstart, wend = w.minTime, w.maxTime
@@ -136,15 +146,13 @@ def process_textgrid(in_path, out_path):
     word_tier = tg.getFirst(ORIG_WORDS)
     phone_tier = tg.getFirst(ORIG_PHONES)
 
-    # Build grouped phone lists by word using midpoint
     phones_per_word = phones_grouped_by_word(word_tier, phone_tier)
 
-    # --- Create tone tier (numeric) ---
+    # --- Create tone intervals per word ---
     tone_tier = IntervalTier(name=OUT_TONES, minTime=tg.minTime, maxTime=tg.maxTime)
+    tone_items = []  # store (Interval, word_index)
 
-    # iterate words and their phones
-    for w_iv, phones_in_word in zip(word_tier.intervals, phones_per_word):
-        # phones_in_word is ordered by original phone_tier order because phone_midpoints preserves order
+    for widx, (w_iv, phones_in_word) in enumerate(zip(word_tier.intervals, phones_per_word)):
         i = 0
         N = len(phones_in_word)
         while i < N:
@@ -153,82 +161,105 @@ def process_textgrid(in_path, out_path):
 
             # keep sil or spn as-is
             if ph in {"sil", "spn", ""}:
-                tone_tier.addInterval(Interval(p.minTime, p.maxTime, ph))
+                iv = Interval(p.minTime, p.maxTime, ph)
+                tone_tier.addInterval(iv)
+                tone_items.append((iv, widx))
                 i += 1
                 continue
 
             # aspirated consonant -> ua
             if is_aspirated(ph):
-                tone_tier.addInterval(Interval(p.minTime, p.maxTime, "ua"))
+                iv = Interval(p.minTime, p.maxTime, "ua")
+                tone_tier.addInterval(iv)
+                tone_items.append((iv, widx))
                 i += 1
                 continue
 
-            # glide before vowel -> merge with vowel and optional nasal
+            # glide before vowel -> merge with vowel and optional nasal or rhotic
             if is_glide(ph) and i + 1 < N and is_vowel(phones_in_word[i + 1].mark):
                 vowel_iv = phones_in_word[i + 1]
                 tone_num = phone_to_tone_number(vowel_iv.mark)
                 start = p.minTime
                 end = vowel_iv.maxTime
                 skip = 2
-                if i + 2 < N and is_nasal(phones_in_word[i + 2].mark):
+                # merge nasal or rhotic after vowel
+                if i + 2 < N and (is_nasal(phones_in_word[i + 2].mark) or is_rhotic(phones_in_word[i + 2].mark)):
                     end = phones_in_word[i + 2].maxTime
                     skip = 3
-                tone_tier.addInterval(Interval(start, end, tone_num))
+                iv = Interval(start, end, tone_num)
+                tone_tier.addInterval(iv)
+                tone_items.append((iv, widx))
                 i += skip
                 continue
 
-            # vowel -> merge with following nasal(s)
+            # vowel -> merge with following nasal(s) or rhotic if present
             if is_vowel(ph):
                 tone_num = phone_to_tone_number(ph)
                 start = p.minTime
                 end = p.maxTime
-                if i + 1 < N and is_nasal(phones_in_word[i + 1].mark):
+                if i + 1 < N and (is_nasal(phones_in_word[i + 1].mark) or is_rhotic(phones_in_word[i + 1].mark)):
                     end = phones_in_word[i + 1].maxTime
                     i += 1
-                tone_tier.addInterval(Interval(start, end, tone_num))
+                iv = Interval(start, end, tone_num)
+                tone_tier.addInterval(iv)
+                tone_items.append((iv, widx))
                 i += 1
                 continue
 
-            # nasal (stand alone)
+            # nasal (standalone)
             if is_nasal(ph):
-                tone_tier.addInterval(Interval(p.minTime, p.maxTime, "un"))
+                iv = Interval(p.minTime, p.maxTime, "un")
+                tone_tier.addInterval(iv)
+                tone_items.append((iv, widx))
+                i += 1
+                continue
+
+            # rhotic standalone (not following vowel) -> treat as consonant 'u'
+            if is_rhotic(ph):
+                iv = Interval(p.minTime, p.maxTime, "u")
+                tone_tier.addInterval(iv)
+                tone_items.append((iv, widx))
                 i += 1
                 continue
 
             # other consonant
-            tone_tier.addInterval(Interval(p.minTime, p.maxTime, "u"))
+            iv = Interval(p.minTime, p.maxTime, "u")
+            tone_tier.addInterval(iv)
+            tone_items.append((iv, widx))
             i += 1
 
-    # compress adjacent identical numeric labels (contiguous) with tolerance
-    compressed = []
+    # --- Compress adjacent identical labels (within same word) ---
     MERGE_TOL = 1e-4
-    for iv in tone_tier.intervals:
-        if not compressed:
-            compressed.append(iv)
+    compressed_items = []
+    for iv, widx in tone_items:
+        if not compressed_items:
+            compressed_items.append((iv, widx))
             continue
-        last = compressed[-1]
-        if abs(last.maxTime - iv.minTime) < MERGE_TOL and last.mark == iv.mark:
-            compressed[-1] = Interval(last.minTime, iv.maxTime, last.mark)
+        last_iv, last_widx = compressed_items[-1]
+        if last_widx == widx and last_iv.mark == iv.mark and abs(last_iv.maxTime - iv.minTime) < MERGE_TOL:
+            merged = Interval(last_iv.minTime, iv.maxTime, last_iv.mark)
+            compressed_items[-1] = (merged, last_widx)
         else:
-            compressed.append(iv)
+            compressed_items.append((iv, widx))
+
+    # --- Build final tone tier ---
     final_tone_tier = IntervalTier(name=OUT_TONES, minTime=tg.minTime, maxTime=tg.maxTime)
-    for iv in compressed:
+    for iv, _ in compressed_items:
         final_tone_tier.addInterval(iv)
 
-    # --- Merge phone tier within words (remove IPA diacritics) ---
-    merged_phone_tier = IntervalTier(name=OUT_WORDS, minTime=tg.minTime, maxTime=tg.maxTime)
+    # --- Merge phones for words tier ---
+    merged_word_tier = IntervalTier(name=OUT_WORDS, minTime=tg.minTime, maxTime=tg.maxTime)
     for w_iv, phones_in_word in zip(word_tier.intervals, phones_per_word):
-        # preserve silence/empty word intervals
-        if (w_iv.mark or "").strip() in {"", "sil", "spn"}:
-            merged_phone_tier.addInterval(Interval(w_iv.minTime, w_iv.maxTime, (w_iv.mark or "").strip()))
+        label = (w_iv.mark or "").strip()
+        if label in {"", "sil", "spn"}:
+            merged_word_tier.addInterval(Interval(w_iv.minTime, w_iv.maxTime, label))
             continue
+        merged_label = "".join(remove_tone_symbols(p.mark or "") for p in phones_in_word)
+        merged_word_tier.addInterval(Interval(w_iv.minTime, w_iv.maxTime, merged_label))
 
-        merged_mark = "".join(remove_tone_symbols(p.mark or "") for p in phones_in_word)
-        merged_phone_tier.addInterval(Interval(w_iv.minTime, w_iv.maxTime, merged_mark))
-
-    # --- Save new TextGrid ---
+    # --- Write new TextGrid ---
     new_tg = TextGrid()
-    new_tg.append(merged_phone_tier)
+    new_tg.append(merged_word_tier)
     new_tg.append(final_tone_tier)
     new_tg.write(out_path)
 
