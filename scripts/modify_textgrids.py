@@ -18,7 +18,7 @@ print("🔧 Modifying TextGrids to Phones and Tones...")
 
 # ===================== CONFIG =====================
 base_dir = Path(__file__).resolve().parent.parent
-INPUT_FOLDER = base_dir / "data_train" / "textgrids"
+INPUT_FOLDER = base_dir / "data_train" / "textgrids_aligned"
 OUTPUT_FOLDER = base_dir / "data_train" / "textgrids_modified"
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
