@@ -1,0 +1,50 @@
+import os
+import shutil
+from pathlib import Path
+
+print("🔧 Creating training corpus...")
+
+def move_pairs(base_dir):
+    textgrid_dir = os.path.join(base_dir, "data_train", "textgrids_modified")
+    wav_dir = os.path.join(base_dir, "data_train", "wavs_preprocessed")
+    output_dir = os.path.join(base_dir, "data_train", "training_corpus")
+
+    os.makedirs(output_dir, exist_ok=True)
+
+    # List files in each folder (without extension)
+    textgrid_files = {os.path.splitext(f)[0] for f in os.listdir(textgrid_dir) if f.endswith(".TextGrid")}
+    wav_files = {os.path.splitext(f)[0] for f in os.listdir(wav_dir) if f.endswith(".wav")}
+
+    # Find matching and missing
+    common = textgrid_files & wav_files
+    missing_textgrids = wav_files - textgrid_files
+    missing_wavs = textgrid_files - wav_files
+
+    print(f"Found {len(common)} matching pairs.")
+    if missing_textgrids:
+        print("\n⚠️ Missing TextGrid files for:")
+        for name in sorted(missing_textgrids):
+            print(f"  - {name}.wav")
+
+    if missing_wavs:
+        print("\n⚠️ Missing WAV files for:")
+        for name in sorted(missing_wavs):
+            print(f"  - {name}.TextGrid")
+
+    # Move matched files
+    for name in sorted(common):
+        tg_src = os.path.join(textgrid_dir, f"{name}.TextGrid")
+        wav_src = os.path.join(wav_dir, f"{name}.wav")
+        tg_dst = os.path.join(output_dir, f"{name}.TextGrid")
+        wav_dst = os.path.join(output_dir, f"{name}.wav")
+
+        shutil.move(tg_src, tg_dst)
+        shutil.move(wav_src, wav_dst)
+
+    print("\n✅ Moving completed.")
+    print(f"Files moved to: {output_dir}")
+
+# Example usage
+if __name__ == "__main__":
+    base_dir = Path(__file__).resolve().parent.parent 
+    move_pairs(base_dir)

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Generate TextGrid files based on /data/wavs_preprocessed and transcripts.xlsx
+Generate TextGrid files based on /data_train/wavs_preprocessed and transcripts.xlsx
 Preserves the original filename capitalization.
 """
 
@@ -12,11 +12,12 @@ from pathlib import Path
 
 print("🗂️ Creating TextGrids...")
 
+# ===================== CONFIG =====================
 # === Path setup ===
 base_dir = Path(__file__).resolve().parent.parent
-input_folder = base_dir / "data" / "wavs_preprocessed"
-output_folder = base_dir / "data" / "textgrids"
-excel_path = base_dir / "data" / "Test_SoundRecognition.xlsx"
+input_folder = base_dir / "data_train" / "wavs_preprocessed"
+output_folder = base_dir / "data_train" / "textgrids"
+excel_path = base_dir / "data_train" / "speech_sample_texts.xlsx"
 
 output_folder.mkdir(exist_ok=True)
 

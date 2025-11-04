@@ -3,7 +3,7 @@
 Preprocess WAV files:
 - Convert to mono
 - Resample to 16kHz
-- Save to /data/wavs_preprocessed
+- Save to /data_train/wavs_preprocessed
 """
 
 import soundfile as sf
@@ -15,8 +15,8 @@ print("🎧 Preprocessing WAVs...")
 
 # === Path setup ===
 base_dir = Path(__file__).resolve().parent.parent
-input_dir = base_dir / "data" / "wavs"
-output_dir = base_dir / "data" / "wavs_preprocessed"
+input_dir = base_dir / "data_train" / "wavs"
+output_dir = base_dir / "data_train" / "wavs_preprocessed"
 output_dir.mkdir(exist_ok=True)
 
 min_samples = 1600  # (~0.1s at 16kHz)

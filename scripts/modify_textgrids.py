@@ -12,10 +12,14 @@ Modify TextGrids:
 import os
 import re
 from textgrid import TextGrid, IntervalTier, Interval
+from pathlib import Path
+
+print("🔧 Modifying TextGrids to Phones and Tones...")
 
 # ===================== CONFIG =====================
-INPUT_FOLDER = "/Users/guanguangjo/Desktop/original_textgrids"
-OUTPUT_FOLDER = "/Users/guanguangjo/Desktop/modified_textgrids"
+base_dir = Path(__file__).resolve().parent.parent
+INPUT_FOLDER = base_dir / "data_train" / "textgrids"
+OUTPUT_FOLDER = base_dir / "data_train" / "textgrids_modified"
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
 ORIG_WORDS = "words"

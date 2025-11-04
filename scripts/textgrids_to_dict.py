@@ -19,8 +19,8 @@ print("🔧 Generating lexicon dictionary...")
 
 # ========== CONFIG ==========
 BASE_DIR = Path(__file__).resolve().parent.parent
-TEXTGRID_DIR = BASE_DIR / "data" / "textgrids_modified"
-OUTPUT_DIR = BASE_DIR / "data" / "dict"
+TEXTGRID_DIR = BASE_DIR / "data_train" / "textgrids_modified"
+OUTPUT_DIR = BASE_DIR / "data_train" / "dict"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 OUTPUT_TXT = OUTPUT_DIR / "dict.txt"

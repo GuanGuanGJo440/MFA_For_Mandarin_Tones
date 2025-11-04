@@ -1,12 +1,15 @@
-print("🔧 Modifying TextGrids to Only Phones...")
-
 import os
 from textgrid import TextGrid, Interval, IntervalTier
 import re
+from pathlib import Path
 
-# ====== CONFIG ======
-input_folder = "/Users/guanguangjo/Desktop/TextGrid_Modifier_Input"
-output_folder = "/Users/guanguangjo/Desktop/TextGrid_Modifier_Output"
+print("🔧 Modifying TextGrids to Only Phones...")
+
+# ===================== CONFIG =====================
+# === Path setup ===
+base_dir = Path(__file__).resolve().parent.parent
+input_folder = base_dir / "data_test" / "output_textgrids_pretrained_original"
+output_folder = base_dir / "data_test" / "output_textgrids_pretrained_modified"
 
 os.makedirs(output_folder, exist_ok=True)
 
