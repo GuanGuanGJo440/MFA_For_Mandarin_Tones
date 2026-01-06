@@ -1,5 +1,3 @@
-print("🔧 Modifying TextGrids...")
-
 #!/usr/bin/env python3
 """
 Modify TextGrids:

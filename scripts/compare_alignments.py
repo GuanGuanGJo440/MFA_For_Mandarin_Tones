@@ -188,6 +188,45 @@ def analyze_all(trained_folder, pretrained_folder, threshold):
     print(f"Overall label (tone) accuracy: {overall_label_acc:.2f}%")
     print(f"Unmatched (extra phones): {unmatched_total}")
 
+        # ===== Boundary shift analysis =====
+    # Note: start_diff and end_diff are signed now (positive = trained later, negative = trained earlier)
+    start_mean = df["start_diff"].mean()
+    start_std = df["start_diff"].std()
+    end_mean = df["end_diff"].mean()
+    end_std = df["end_diff"].std()
+
+    # Separate before/after
+    before_count_start = (df["start_diff"] < 0).sum()
+    after_count_start = (df["start_diff"] > 0).sum()
+    before_count_end = (df["end_diff"] < 0).sum()
+    after_count_end = (df["end_diff"] > 0).sum()
+
+    avg_abs_shift = df["avg_diff"].abs().mean()
+    std_abs_shift = df["avg_diff"].abs().std()
+
+    print("\n=== Boundary Shift Statistics (in seconds) ===")
+    print(f"Start boundary mean shift: {start_mean:.4f}s (std={start_std:.4f})")
+    print(f"  -> Before correct: {before_count_start}, After correct: {after_count_start}")
+    print(f"End boundary mean shift:   {end_mean:.4f}s (std={end_std:.4f})")
+    print(f"  -> Before correct: {before_count_end}, After correct: {after_count_end}")
+    print(f"Average absolute shift (avg of start+end): {avg_abs_shift:.4f}s (std={std_abs_shift:.4f})")
+
+    # Save stats to CSV
+    shift_stats = pd.DataFrame({
+        "Metric": [
+            "start_mean_shift", "start_std", "end_mean_shift", "end_std",
+            "before_start_count", "after_start_count", "before_end_count", "after_end_count",
+            "avg_abs_shift", "std_abs_shift"
+        ],
+        "Value": [
+            start_mean, start_std, end_mean, end_std,
+            before_count_start, after_count_start, before_count_end, after_count_end,
+            avg_abs_shift, std_abs_shift
+        ]
+    })
+    shift_stats.to_csv(os.path.join(output_folder, "boundary_shift_statistics.csv"), index=False)
+    print("Saved boundary shift statistics -> 'boundary_shift_statistics.csv'.")
+
     # ✅ Count boundaries before/after
     before_count = ((df["start_diff"] < 0) | (df["end_diff"] < 0)).sum()
     after_count = ((df["start_diff"] > 0) | (df["end_diff"] > 0)).sum()

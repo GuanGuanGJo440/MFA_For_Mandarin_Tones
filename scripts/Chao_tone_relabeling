@@ -1,0 +1,91 @@
+import parselmouth
+import textgrid
+import math
+import numpy as np
+import os
+from pathlib import Path
+
+# --- Configuration ---
+base_dir = Path(__file__).resolve().parent.parent
+wav_dir = base_dir / "data_test" / "testing_corpus"
+tg_dir = base_dir / "data_test" / "output_textgrids_trained"
+output_dir = base_dir / "data_test" / "output_textgrids_trained_relabeled"
+tone_tier_name = "phones"
+edge_offset = 0.02
+
+# Create output directory if it doesn't exist
+Path(output_dir).mkdir(parents=True, exist_ok=True)
+
+def get_chao_level(f0, f0_min, step):
+    if f0 == 0 or math.isnan(f0) or f0 is None: 
+        return 1 
+    level = math.floor((f0 - f0_min) / step) + 1
+    return max(1, min(5, int(level)))
+
+# --- Processing Loop ---
+# We loop through the TextGrid directory
+for tg_filename in os.listdir(tg_dir):
+    if tg_filename.endswith(".TextGrid"):
+        # Strip extension to get the base name
+        base_name = os.path.splitext(tg_filename)[0]
+        
+        # Construct full paths
+        tg_path = os.path.join(tg_dir, tg_filename)
+        wav_path = os.path.join(wav_dir, base_name + ".wav")
+        output_path = os.path.join(output_dir, tg_filename)
+
+        # Check if the corresponding WAV file exists
+        if not os.path.exists(wav_path):
+            print(f"Skipping {tg_filename}: WAV file not found.")
+            continue
+
+        try:
+            # 1. Load Sound and extract Pitch
+            snd = parselmouth.Sound(wav_path)
+            pitch = snd.to_pitch(pitch_floor=75, pitch_ceiling=600)
+
+            # 2. Get the 5th and 95th percentiles for the F0 range
+            f0_values = pitch.selected_array['frequency']
+            f0_values = f0_values[f0_values > 0] 
+            if len(f0_values) == 0:
+                print(f"Skipping {tg_filename}: No pitch detected.")
+                continue
+                
+            f0_min = np.percentile(f0_values, 5)
+            f0_max = np.percentile(f0_values, 95)
+            # Prevent division by zero if pitch is flat
+            step = (f0_max - f0_min) / 5 if f0_max > f0_min else 1
+
+            # 3. Load TextGrid
+            tg = textgrid.TextGrid.fromFile(tg_path)
+            
+            # Find the correct tier safely
+            try:
+                tier = next(t for t in tg.tiers if t.name == tone_tier_name)
+            except StopIteration:
+                print(f"Skipping {tg_filename}: Tier '{tone_tier_name}' not found.")
+                continue
+
+            # 4. Process Intervals
+            excluded_marks = ["", "u", "ua", "un"]
+            for interval in tier:
+                mark_clean = interval.mark.strip()
+                if mark_clean not in excluded_marks:
+                    dur = interval.maxTime - interval.minTime
+                    if dur > (edge_offset * 2):
+                        f0_start = pitch.get_value_at_time(interval.minTime + edge_offset)
+                        f0_end = pitch.get_value_at_time(interval.maxTime - edge_offset)
+                        
+                        s_level = get_chao_level(f0_start, f0_min, step)
+                        e_level = get_chao_level(f0_end, f0_min, step)
+                        
+                        interval.mark = f"{s_level}{e_level}"
+
+            # 5. Save the TextGrid
+            tg.write(output_path)
+            print(f"Processed: {tg_filename}")
+
+        except Exception as e:
+            print(f"Error processing {tg_filename}: {e}")
+
+print(f"\nAll files saved to: {output_dir}")

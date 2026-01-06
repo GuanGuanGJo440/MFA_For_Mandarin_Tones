@@ -1,278 +1,325 @@
 # MFA_For_Mandarin_Tones
 
-Adapting the Montreal Forced Aligner to align Mandarin lexical tones in Praat.
+This project is designed to assist in generating **acoustic models for Mandarin tone alignment**.
 
-A complete workflow for aligning and training Mandarin acoustic models using [**Montreal Forced Aligner (MFA)**](https://montreal-forced-aligner.readthedocs.io/en/latest/).
-This project provides Python scripts for preprocessing, TextGrid generation, tone-based modifications, and evaluation.
-
----
-
-## 🧩 1. Environment Setup
-
-### Install Anaconda or Miniconda
-
-1. Go to [**anaconda.com/download**](https://www.anaconda.com/download?utm_source=anacondadocs&utm_medium=documentation&utm_campaign=download&utm_content=installmacgraphical) and register an account.
-2. Download **Anaconda (Mac or Windows)** under *Distribution Installers*.
-3. Double-click the downloaded file → click **Continue** to begin installation.
-4. Read the license and click **Agree**.
-5. Choose install location:
-   * **Install for all users (recommended)** → `/opt/anaconda3`
-   * or select a custom path.
-6. Click **Install** and wait for it to finish.
-7. When complete, click **Continue** → **Close**.
+It helps users create or modify **TextGrid** files within a speech corpus for tone-based alignment using the **Montreal Forced Aligner (MFA)** framework.
 
 ---
 
-### Create MFA Environment
+## 📦 Requirements
 
-Open **Terminal** and run:
+Before running the scripts, users need to prepare:
+
+1. **Speech samples** in `.wav` format
+2. **An Excel file** that records:
+    - **Column 1:** File name of each wave file
+    - **Column 2:** Corresponding text transcription
+
+---
+
+## ⚙️ Environment Setup
+
+### 1. Install Anaconda
+
+Download and install **Anaconda** (or **Miniconda**) from the official website:
+
+[👉 https://www.anaconda.com/download](https://www.anaconda.com/download?utm_source=anacondadocs&utm_medium=documentation&utm_campaign=download&utm_content=installmacgraphical)
+
+Follow these steps:
+
+1. Register and click **Download for Mac** or the Windows installer under *Distribution Installers*.
+2. Double-click the installer and click **Continue**.
+3. View the *Read Me* and click **Continue**.
+4. Read and agree to the [Anaconda Terms of Service](https://anaconda.com/legal).
+5. Choose installation type:
+    - **For all users (recommended)** → installs in `/opt/anaconda3`
+    - **Custom disk location** → choose a different path
+6. Click **Install** and wait for the process to complete.
+7. Click **Continue**, then **Close**.
+
+---
+
+### 2. Create the MFA environment
+
+Open your **terminal** and run:
 
 ```bash
 conda create -n aligner2.2.17 -c conda-forge montreal-forced-aligner=2.2.17 openfst=1.8.2 kaldi=5.5.1068
+
 ```
 
-This creates an environment named **aligner2.2.17** for running **Montreal Forced Aligner v2.2.17**.
+This creates a new environment called **aligner2.2.17**, which includes **Montreal Forced Aligner (v2.2.17)** and its dependencies.
+
+Then, open **two terminal windows**:
+
+- One for your base environment
+- One for the MFA environment (activate it with:)
+
+```bash
+conda activate aligner2.2.17
+
+```
 
 ---
 
-## 🧠 2. Setup Project
+### 3. Download pretrained MFA models
 
-### Step 1: Clone Repository
+In the `aligner2.2.17` environment, run:
+
+```bash
+mfa model download dictionary mandarin_taiwan_mfa
+mfa model download acoustic mandarin_mfa
+
+```
+
+This downloads:
+
+- **Mandarin (Taiwan) MFA Dictionary v3.0.0**
+- **Mandarin MFA Acoustic Model v2.0.0a**
+
+Verify the installations:
+
+```bash
+mfa model inspect dictionary mandarin_taiwan_mfa
+mfa model inspect acoustic mandarin_mfa
+
+```
+
+If no errors appear, you are ready to proceed.
+
+---
+
+## 🧠 Training Acoustic Models
+
+### Step 1: Clone this repository
 
 ```bash
 git clone https://github.com/GuanGuanGJo440/MFA_For_Mandarin_Tones.git
 cd MFA_For_Mandarin_Tones
+
 ```
 
 ---
 
-### Step 2: Install Required Libraries
+### Step 2: Install required libraries
 
-Inside your conda environment, install required packages:
+In your **conda (base) environment**, install dependencies:
 
 ```bash
 pip install soundfile
 pip install resampy
 pip install textgrid
 pip install pandas
+
 ```
 
-✅ Make sure `soundfile`, `resampy`, `textgrid`, and `pandas` are all available.
+Make sure your environment includes:
+
+- `soundfile`
+- `resampy`
+- `textgrid`
+- `pandas`
 
 ---
 
-### Step 3: Prepare Your Data
+### Step 3: Prepare input data
 
-Place your files inside `/data`:
+Place your data under the `/data_train` folder:
 
-```
-/data/
-├── wavs/               ← raw WAV files (any sample rate, stereo)
-├── transcripts.xlsx     ← Excel file (col A = filename, col B = text)
-```
+- **Wave files** → `/data_train/wavs/`
+- **Excel file** → `/data_train/`
 
 ---
 
-### Step 4: Preprocess WAVs
+### Step 4: Preprocess wav files
 
-Convert all audio to **mono, 16kHz WAVs**:
+Ensure all `.wav` files are mono and 16 kHz:
 
 ```bash
 python scripts/preprocess_wavs.py
-```
-
-Outputs will be saved to:
 
 ```
-/data/wavs_preprocessed/
-```
+
+Output files will be saved in `/data_train/wavs_preprocessed/`.
 
 ---
 
 ### Step 5: Create TextGrids
 
-Generate TextGrids with the text from your Excel sheet:
+Generate initial TextGrids with word-level annotations:
 
 ```bash
 python scripts/create_textgrids.py
-```
-
-Each TextGrid will have:
-
-* **Tier name:** `words`
-* **Content:** text label from the Excel file
-
-Output directory:
 
 ```
-/data/textgrids/
-```
+
+Each `.TextGrid` will contain a **tier named “words”** with corresponding text.
 
 ---
 
-## 🎙️ 3. Run MFA Alignment
-
-### Step 6: Activate MFA Environment
+### Step 6: Create a prealigned corpus
 
 ```bash
-conda activate aligner2.2.17
+python scripts/create_prealigned_corpus.py
+
 ```
 
-### Step 7: Download Mandarin Models
+This moves the generated TextGrids into `/data_train/aligner_input/`
 
-```bash
-mfa model download dictionary mandarin_taiwan_mfa
-mfa model download acoustic mandarin_mfa
-```
-
-You can verify the downloads with:
-
-```bash
-mfa model inspect dictionary mandarin_taiwan_mfa
-mfa model inspect acoustic mandarin_mfa
-```
-
-These correspond to:
-
-* **Mandarin (Taiwan) MFA dictionary v2.0.0**
-* **Mandarin MFA acoustic model v2.0.0a**
+and copies preprocessed `.wav` files into the same folder.
 
 ---
 
-### Step 8: Align TextGrids with Pretrained Model
-
-Place your preprocessed `.wav` and `.TextGrid` files into:
-
-```
-aligner_input/
-```
-
-Run:
+### Step 7: (In MFA environment) Align using pretrained model
 
 ```bash
-mfa align --clean [corpus directory] [dictionary path] [acoustic model path] [output directory]
-```
-
-Move the resulting `.TextGrid` files from:
+mfa align --clean [corpus directory] [dictionary path] [acoustic path] [output directory]
 
 ```
-aligner_output/ → /data/textgrids/
-```
 
-Then, remove the old contents of `aligner_input/`.
+**Example paths:**
+
+- `corpus directory` → `/data_train/aligner_input`
+- `dictionary path` → MFA pretrained dictionary `.dict` file
+- `acoustic path` → MFA pretrained acoustic `.zip` file
+- `output directory` → `/data_train/textgrids_modified`
 
 ---
 
-## 🎵 4. Post-Alignment Processing
+### Step 8: Modify TextGrids for tone alignment
 
-### Step 9: Switch Back to Base Conda Environment
-
-```bash
-conda activate base
-```
-
-### Step 10: Modify TextGrids (convert phones → tones)
+Convert phoneme-based alignments to **tone-based tiers**:
 
 ```bash
 python scripts/modify_textgrids.py
+
 ```
 
-### Step 11: Generate Dictionary from TextGrids
+---
+
+### Step 9: (Optional) Generate dictionary from TextGrids
 
 ```bash
 python scripts/textgrids_to_dict.py
+
 ```
+
+This creates a custom dictionary in `/data_train/dict/`.
 
 ---
 
-## 🧑‍🏫 5. Train Your Own Acoustic Model
+### Step 10: Create training corpus
 
-### Step 12: Switch Back to MFA Environment
+Combine preprocessed wavs and modified TextGrids:
 
 ```bash
-conda activate aligner2.2.17
-```
-
-### Step 13: Train Model
-
-Place training data into:
+python scripts/create_training_corpus.py
 
 ```
-training_corpus/
+
+The result will be in `/data_train/training_corpus/`.
+
+---
+
+### Step 11: Train the acoustic model (MFA environment)
+
+Prepare your corpus and dictionary, then run:
+
+```bash
+mfa train --clean --config_path [configuration path] [corpus directory] [dictionary path] [output directory]
+
 ```
+
+**Example paths:**
+
+- `configuration path` → `/models/trained_model/training_config/*.yaml`
+- `corpus directory` → `/data_train/training_corpus/`
+- `dictionary path` → `/data_train/dict/` *(or pretrained dictionary)*
+- `output directory` → your output `.zip` model file (e.g. `my_acoustic_model.zip`)
+
+The trained acoustic model will be saved as a `.zip` file.
+
+---
+
+## 🧪 Testing Phase
+
+### Step 12: Test the trained model (MFA environment)
+
+Place your test files in `/data_test/testing_corpus/`.
+
+Then run:
+
+```bash
+mfa align --clean [corpus directory] [dictionary path] [acoustic path] [output directory]
+
+```
+
+**Example paths:**
+
+- `corpus directory` → `/data_test/testing_corpus/`
+- `dictionary path` → your trained or pretrained dictionary
+- `acoustic path` → trained model `.zip`
+- `output directory` → `/data_test/output_textgrids_trained/`
+
+---
+
+### Step 13: Test the pretrained model
+
+```bash
+mfa align --clean [corpus directory] [dictionary path] [acoustic path] [output directory]
+
+```
+
+**Example paths:**
+
+- `corpus directory` → `/data_test/testing_corpus/`
+- `dictionary path` → pretrained dictionary
+- `acoustic path` → pretrained acoustic model
+- `output directory` → `/data_test/output_textgrids_pretrained_original/`
+
+---
+
+### Step 14: Preprocess before tone comparison
 
 Run:
 
 ```bash
-mfa train --clean [corpus directory] [dictionary path] [output directory]
-```
+python scripts/modify_textgrids_before_tone_alignment.py
 
-Your trained acoustic model will be exported as a `.zip` file in the output directory.
-
----
-
-## 🎧 6. Evaluate Model Accuracy
-
-### Step 14: Generate Test Alignments
-
-Place test data (`.wav` + `.TextGrid`) in:
-
-```
-aligner_input/
-```
-
-Run:
-
-```bash
-mfa align --clean [corpus directory] [dictionary path] [acoustic model path] [output directory]
-```
-
-Move results to:
-
-```
-/data/textgrids_test/
 ```
 
 ---
 
-### Step 15: Compare Alignment Accuracy
+### Step 15: Calculate accuracy
 
-Run:
+Run the evaluation script:
 
 ```bash
 python scripts/compare_alignments.py
+
 ```
 
-This script compares boundary differences between your trained and pretrained MFA alignments.
+Results will be saved in `/data_test/accuracy_calculator/`.
 
 ---
 
-## 🗂️ Project Structure
+## 🧾 Summary of Key Directories
 
-```
-MFA_For_Mandarin_Tones/
-├── data/
-│   ├── wavs/
-│   ├── wavs_preprocessed/
-│   ├── textgrids/
-│   ├── textgrids_modified/
-│   ├── dict/
-│   ├── transcripts.xlsx
-│   ├── wavs_train/
-│   ├── textgrids_train/
-│   ├── wavs_test/
-│   ├── textgrids_test/
-├── scripts/
-│   ├── preprocess_wavs.py
-│   ├── create_textgrids.py
-│   ├── modify_textgrids.py
-│   ├── textgrids_to_dict.py
-│   ├── compare_alignments.py
-│   └── run_mfa_train.sh
-├── rules.json
-├── environment.yml
-└── README.md
-```
+| Folder | Description |
+| --- | --- |
+| `data_train/wavs/` | Original speech samples |
+| `data_train/wavs_preprocessed/` | Preprocessed mono 16 kHz wavs |
+| `data_train/aligner_input/` | Input for MFA alignment |
+| `data_train/textgrids_modified/` | TextGrids after alignment |
+| `data_train/training_corpus/` | Data for training custom acoustic models |
+| `data_test/testing_corpus/` | Test set |
+| `data_test/output_textgrids_trained/` | Output aligned by trained model |
+| `data_test/output_textgrids_pretrained_original/` | Output aligned by pretrained model |
+| `data_test/accuracy_calculator/` | Accuracy results |
 
+---
 
+## 📚 References
 
+- [Montreal Forced Aligner Documentation](https://montreal-forced-aligner.readthedocs.io/)
+- [Mandarin MFA Models](https://mfa-models.readthedocs.io/en/latest/)
